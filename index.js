@@ -23,6 +23,9 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const courseCollections = client.db("eduLearn").collection("courses");
+    const enrollmentsCollection = client
+      .db("eduLearn")
+      .collection("enrollments");
 
     //get all the courses
     app.get("/courses", async (req, res) => {
@@ -43,7 +46,15 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await courseCollections.findOne(query);
-      res.send(result)
+      res.send(result);
+    });
+
+    //enrollments related APIs
+
+    app.post("/enrollments", async (req, res) => {
+      const enrollment = req.body;
+      const result = await enrollmentsCollection.insertOne(enrollment);
+      res.send(result);
     });
 
     await client.db("admin").command({ ping: 1 });
