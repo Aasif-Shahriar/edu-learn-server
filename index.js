@@ -29,7 +29,15 @@ async function run() {
 
     //get all the courses
     app.get("/courses", async (req, res) => {
-      const cursor = courseCollections.find();
+      // getting courses based on condition (instructor email)
+      const email = req.query.email
+      const query = {}
+      if(email){
+        query.instructorEmail = email
+      }
+
+
+      const cursor = courseCollections.find(query);
       const result = await cursor.toArray();
       res.send(result);
     });
@@ -57,6 +65,14 @@ async function run() {
       const result = await courseCollections.insertOne(course)
       res.send(result)
     });
+
+    //delete operation for course
+    app.delete('/courses/:id',async(req,res)=>{
+      const id = req.params.id
+      const query = {_id: new ObjectId(id)}
+      const result = await courseCollections.deleteOne(query)
+      res.send(result)
+    })
 
     //enrollments related APIs
     app.get("/enrollments", async (req, res) => {
