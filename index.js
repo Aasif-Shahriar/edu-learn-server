@@ -49,11 +49,51 @@ async function run() {
       res.send(result);
     });
 
+    app.post("/courses", async (req, res) => {
+      const course = {
+        ...req.body,
+        publishDate: new Date(),
+      };
+      const result = await courseCollections.insertOne(course)
+      res.send(result)
+    });
+
     //enrollments related APIs
+    app.get("/enrollments", async (req, res) => {
+      const email = req.query.email;
+      const query = {
+        student: email,
+      };
+      const result = await enrollmentsCollection.find(query).toArray();
+
+      //bad way to aggregate data
+      for (const enrollment of result) {
+        const courseId = enrollment.courseId;
+        const courseQuery = { _id: new ObjectId(courseId) };
+        const course = await courseCollections.findOne(courseQuery);
+
+        enrollment.title = course.title;
+        enrollment.instructorName = course.instructorName;
+        enrollment.duration = course.duration;
+      }
+      res.send(result);
+    });
 
     app.post("/enrollments", async (req, res) => {
-      const enrollment = req.body;
+      const enrollment = {
+        ...req.body,
+        enrolledAt: new Date(),
+        status: "Active",
+      };
       const result = await enrollmentsCollection.insertOne(enrollment);
+      res.send(result);
+    });
+
+    //delete an enrollment
+    app.delete("/enrollments/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await enrollmentsCollection.deleteOne(query);
       res.send(result);
     });
 
