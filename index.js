@@ -47,19 +47,31 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
-         //particular course id to see how many people have enrolled
+    //particular course id to see how many people have enrolled
     app.get("/courses/enrollments", async (req, res) => {
       const email = req.query.email;
       const query = { instructorEmail: email };
       const courses = await courseCollections.find(query).toArray();
 
       //not a good way to find enrollments
-      for(const course of courses){
-        const enrollmentsQuery = {courseId: course._id.toString()}
-        const enrollmentsCount = await enrollmentsCollection.countDocuments(enrollmentsQuery)
-        course.enrollmentsCount = enrollmentsCount
+      for (const course of courses) {
+        const enrollmentsQuery = { courseId: course._id.toString() };
+        const enrollmentsCount = await enrollmentsCollection.countDocuments(
+          enrollmentsQuery
+        );
+        course.enrollmentsCount = enrollmentsCount;
       }
 
+      res.send(courses);
+    });
+
+    //popular courses api
+    app.get("/courses/popular", async (req, res) => {
+      const courses = await courseCollections
+        .find()
+        .sort({ enrolledCount: -1 })
+        .limit(6)
+        .toArray();
       res.send(courses);
     });
 
@@ -70,9 +82,6 @@ async function run() {
       const result = await courseCollections.findOne(query);
       res.send(result);
     });
-
-  
-
 
     app.post("/courses", async (req, res) => {
       const course = {
@@ -130,7 +139,6 @@ async function run() {
       res.send(result);
     });
 
- 
     app.post("/enrollments", async (req, res) => {
       const enrollment = {
         ...req.body,
@@ -138,14 +146,32 @@ async function run() {
         status: "Active",
       };
       const result = await enrollmentsCollection.insertOne(enrollment);
+
+      //update enroll count
+      await courseCollections.updateOne(
+        { _id: new ObjectId(enrollment.courseId) },
+        { $inc: { enrolledCount: 1 } }
+      );
+
       res.send(result);
     });
 
     //delete an enrollment
     app.delete("/enrollments/:id", async (req, res) => {
       const id = req.params.id;
+
+      const enrollment = await enrollmentsCollection.findOne({
+        _id: new ObjectId(id),
+      });
+
       const query = { _id: new ObjectId(id) };
       const result = await enrollmentsCollection.deleteOne(query);
+
+      //update enrollments count after delete
+      await courseCollections.updateOne(
+        { _id: new ObjectId(enrollment.courseId) },
+        { $inc: { enrolledCount: -1 } }
+      );
       res.send(result);
     });
 
