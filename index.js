@@ -47,6 +47,21 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
+         //particular course id to see how many people have enrolled
+    app.get("/courses/enrollments", async (req, res) => {
+      const email = req.query.email;
+      const query = { instructorEmail: email };
+      const courses = await courseCollections.find(query).toArray();
+
+      //not a good way to find enrollments
+      for(const course of courses){
+        const enrollmentsQuery = {courseId: course._id.toString()}
+        const enrollmentsCount = await enrollmentsCollection.countDocuments(enrollmentsQuery)
+        course.enrollmentsCount = enrollmentsCount
+      }
+
+      res.send(courses);
+    });
 
     //find/get a single course for details
     app.get("/courses/:id", async (req, res) => {
@@ -55,6 +70,9 @@ async function run() {
       const result = await courseCollections.findOne(query);
       res.send(result);
     });
+
+  
+
 
     app.post("/courses", async (req, res) => {
       const course = {
@@ -112,6 +130,7 @@ async function run() {
       res.send(result);
     });
 
+ 
     app.post("/enrollments", async (req, res) => {
       const enrollment = {
         ...req.body,
