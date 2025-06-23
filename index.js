@@ -42,7 +42,7 @@ async function run() {
     });
 
     //get limited course
-    app.get("/courses/latest", async (req, res) => {
+    app.get("/latest", async (req, res) => {
       const cursor = courseCollections.find().sort({ _id: -1 }).limit(6);
       const result = await cursor.toArray();
       res.send(result);
