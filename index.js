@@ -42,7 +42,7 @@ async function run() {
     });
 
     //get limited course
-    app.get("/latest", async (req, res) => {
+    app.get("/course/latest", async (req, res) => {
       const cursor = courseCollections.find().sort({ _id: -1 }).limit(6);
       const result = await cursor.toArray();
       res.send(result);
@@ -66,7 +66,7 @@ async function run() {
     });
 
     //popular courses api
-    app.get("/courses/popular", async (req, res) => {
+    app.get("/all/popular", async (req, res) => {
       const courses = await courseCollections
         .find()
         .sort({ enrolledCount: -1 })
