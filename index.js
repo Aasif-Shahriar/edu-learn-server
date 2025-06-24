@@ -85,8 +85,9 @@ async function run() {
       if (!course) {
         res.status(404).send({ message: "Course not found" });
       }
-      const seatsLeft = parseInt(course.totalSeats) - (course.enrolledCount || 0);
-      res.send({...course,seatsLeft});
+      const seatsLeft =
+        parseInt(course.totalSeats) - (course.enrolledCount || 0);
+      res.send({ ...course, seatsLeft });
     });
 
     app.post("/courses", async (req, res) => {
@@ -143,6 +144,16 @@ async function run() {
         enrollment.duration = course.duration;
       }
       res.send(result);
+    });
+
+    //checked if enrollments already exist in our server
+    app.get("/enrollments/check", async (req, res) => {
+      const { email, courseId } = req.query;
+      const exists = await enrollmentsCollection.findOne({
+        courseId,
+        student: email,
+      });
+      res.send({ enrolled: !!exists, enrollmentId: exists?._id });
     });
 
     //save enrollments in the database
