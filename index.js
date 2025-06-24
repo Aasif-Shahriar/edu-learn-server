@@ -48,6 +48,16 @@ async function run() {
       res.send(result);
     });
 
+    //popular courses api
+    app.get("/popular", async (req, res) => {
+      const courses = await courseCollections
+        .find()
+        .sort({ enrolledCount: -1 })
+        .limit(6)
+        .toArray();
+      res.send(courses);
+    });
+
     //particular course id to see how many people have enrolled
     app.get("/courses/enrollments", async (req, res) => {
       const email = req.query.email;
@@ -63,16 +73,6 @@ async function run() {
         course.enrollmentsCount = enrollmentsCount;
       }
 
-      res.send(courses);
-    });
-
-    //popular courses api
-    app.get("/popular", async (req, res) => {
-      const courses = await courseCollections
-        .find()
-        .sort({ enrolledCount: -1 })
-        .limit(6)
-        .toArray();
       res.send(courses);
     });
 
@@ -126,6 +126,7 @@ async function run() {
     });
 
     //enrollments related APIs
+
     app.get("/enrollments", async (req, res) => {
       const email = req.query.email;
       const query = {
