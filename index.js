@@ -47,6 +47,7 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
+
     //particular course id to see how many people have enrolled
     app.get("/courses/enrollments", async (req, res) => {
       const email = req.query.email;
@@ -76,11 +77,16 @@ async function run() {
     });
 
     //find/get a single course for details
-    app.get("/courses/:id", async (req, res) => {
+    app.get("/course/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
-      const result = await courseCollections.findOne(query);
-      res.send(result);
+      const course = await courseCollections.findOne(query);
+
+      if (!course) {
+        res.status(404).send({ message: "Course not found" });
+      }
+      const seatsLeft = parseInt(course.totalSeats) - (course.enrolledCount || 0);
+      res.send({...course,seatsLeft});
     });
 
     app.post("/courses", async (req, res) => {
@@ -139,6 +145,7 @@ async function run() {
       res.send(result);
     });
 
+    //save enrollments in the database
     app.post("/enrollments", async (req, res) => {
       const enrollment = {
         ...req.body,
