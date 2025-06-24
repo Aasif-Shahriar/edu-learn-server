@@ -83,7 +83,7 @@ async function run() {
       const course = await courseCollections.findOne(query);
 
       if (!course) {
-        res.status(404).send({ message: "Course not found" });
+        return res.status(404).send({ message: "Course not found" });
       }
       const seatsLeft =
         parseInt(course.totalSeats) - (course.enrolledCount || 0);
@@ -100,7 +100,7 @@ async function run() {
     });
 
     //delete operation for course
-    app.delete("/courses/:id", async (req, res) => {
+    app.delete("/course/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await courseCollections.deleteOne(query);
@@ -108,7 +108,7 @@ async function run() {
     });
 
     //update operation for course
-    app.put("/courses/:id", async (req, res) => {
+    app.put("/course/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const options = { upsert: true };
@@ -126,7 +126,6 @@ async function run() {
     });
 
     //enrollments related APIs
-
     app.get("/enrollments", async (req, res) => {
       const email = req.query.email;
       const query = {
