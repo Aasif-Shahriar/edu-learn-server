@@ -41,8 +41,8 @@ async function run() {
       res.send(result);
     });
 
-    //get limited course
-    app.get("/course/latest", async (req, res) => {
+    //get latest course
+    app.get("/latest", async (req, res) => {
       const cursor = courseCollections.find().sort({ _id: -1 }).limit(6);
       const result = await cursor.toArray();
       res.send(result);
@@ -67,7 +67,7 @@ async function run() {
     });
 
     //popular courses api
-    app.get("/all/popular", async (req, res) => {
+    app.get("/popular", async (req, res) => {
       const courses = await courseCollections
         .find()
         .sort({ enrolledCount: -1 })
@@ -163,6 +163,17 @@ async function run() {
         enrolledAt: new Date(),
         status: "Active",
       };
+
+      //preventing duplicate enrollment
+      const alreadyEnrolled = await enrollmentsCollection.findOne({
+        courseId: enrollment.courseId,
+        student: enrollment.student,
+      });
+
+      if (alreadyEnrolled) {
+        return res.status(409).send({ error: "Already enrolled" });
+      }
+
       const result = await enrollmentsCollection.insertOne(enrollment);
 
       //update enroll count
