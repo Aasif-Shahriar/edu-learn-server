@@ -126,6 +126,7 @@ async function run() {
     });
 
     //enrollments related APIs
+
     app.get("/enrollments", async (req, res) => {
       const email = req.query.email;
       const query = {
@@ -156,29 +157,50 @@ async function run() {
       res.send({ enrolled: !!exists, enrollmentId: exists?._id });
     });
 
+    app.get("/enrollments/count", async (req, res) => {
+      const email = req.query.email;
+      const count = await enrollmentsCollection.countDocuments({
+        student: email,
+      });
+      res.send({ count });
+    });
+
     //save enrollments in the database
     app.post("/enrollments", async (req, res) => {
+      const { courseId, student } = req.body;
+
+      // Check if already enrolled
+      const existing = await enrollmentsCollection.findOne({
+        courseId,
+        student,
+      });
+      if (existing) {
+        return res.status(400).send({ message: "Already enrolled" });
+      }
+
+      // Check if user has enrolled in 3 courses
+      const activeCount = await enrollmentsCollection.countDocuments({
+        student,
+      });
+      if (activeCount >= 3) {
+        return res
+          .status(400)
+          .send({ message: "You can only enroll in 3 courses" });
+      }
+
+      // Insert new enrollment
       const enrollment = {
-        ...req.body,
+        courseId,
+        student,
         enrolledAt: new Date(),
         status: "Active",
       };
 
-      //preventing duplicate enrollment
-      const alreadyEnrolled = await enrollmentsCollection.findOne({
-        courseId: enrollment.courseId,
-        student: enrollment.student,
-      });
-
-      if (alreadyEnrolled) {
-        return res.status(409).send({ error: "Already enrolled" });
-      }
-
       const result = await enrollmentsCollection.insertOne(enrollment);
 
-      //update enroll count
+      // Safely increment count
       await courseCollections.updateOne(
-        { _id: new ObjectId(enrollment.courseId) },
+        { _id: new ObjectId(courseId) },
         { $inc: { enrolledCount: 1 } }
       );
 
@@ -193,15 +215,22 @@ async function run() {
         _id: new ObjectId(id),
       });
 
-      const query = { _id: new ObjectId(id) };
-      const result = await enrollmentsCollection.deleteOne(query);
+      if (!enrollment) {
+        return res.status(404).send({ message: "Enrollment not found" });
+      }
 
-      //update enrollments count after delete
+      // Delete enrollment first
+      const deleteResult = await enrollmentsCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+
+      // Decrement count only if it’s greater than 0
       await courseCollections.updateOne(
-        { _id: new ObjectId(enrollment.courseId) },
+        { _id: new ObjectId(enrollment.courseId), enrolledCount: { $gt: 0 } },
         { $inc: { enrolledCount: -1 } }
       );
-      res.send(result);
+
+      res.send(deleteResult);
     });
 
     await client.db("admin").command({ ping: 1 });
