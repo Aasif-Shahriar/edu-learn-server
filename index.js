@@ -2,12 +2,60 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const app = express();
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
 const port = process.env.PORT || 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 //middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:5173"],
+    credentials: true,
+  })
+);
 app.use(express.json());
+app.use(cookieParser());
+
+var admin = require("firebase-admin");
+
+var serviceAccount = require("./firebase-admin-key.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+const logger = (req, res, next) => {
+  console.log("inside the middleware");
+  next();
+};
+
+const verifyToken = (req, res, next) => {
+  const token = req?.cookies?.token;
+
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized access" });
+  }
+
+  jwt.verify(token, process.env.JWT_ACCESS_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: "Unauthorized access" });
+    }
+    res.decoded = decoded;
+    next();
+  });
+};
+
+const verifyFirebaseToken = async (req, res, next) => {
+  const fbToken = req.headers.authorization;
+  const token = fbToken.split(" ")[1];
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized accees" });
+  }
+  const userInfo = await admin.auth().verifyIdToken(token);
+  req.tokenEmail = userInfo.email;
+  next();
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.uzfctdd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -27,7 +75,24 @@ async function run() {
       .db("eduLearn")
       .collection("enrollments");
 
-    //get all the courses
+    //jwt related APIs
+    app.post("/jwt", async (req, res) => {
+      const userInfo = req.body;
+
+      const token = jwt.sign(userInfo, process.env.JWT_ACCESS_SECRET, {
+        expiresIn: "1d",
+      });
+
+      res.cookie("token", token, {
+        httpOnly: true,
+        secure: false,
+      });
+
+      res.send({ success: true });
+    });
+
+    //Course related APIs
+
     app.get("/courses", async (req, res) => {
       // getting courses based on condition (instructor email)
       const email = req.query.email;
@@ -59,7 +124,7 @@ async function run() {
     });
 
     //particular course id to see how many people have enrolled
-    app.get("/courses/enrollments", async (req, res) => {
+    app.get("/courses/enrollments", verifyToken, async (req, res) => {
       const email = req.query.email;
       const query = { instructorEmail: email };
       const courses = await courseCollections.find(query).toArray();
@@ -127,8 +192,12 @@ async function run() {
 
     //enrollments related APIs
 
-    app.get("/enrollments", async (req, res) => {
+    app.get("/enrollments", logger, verifyFirebaseToken, async (req, res) => {
       const email = req.query.email;
+
+      if (req.tokenEmail !== email) {
+        return res.status(403).send({ message: "forbidden accesss" });
+      }
       const query = {
         student: email,
       };
