@@ -2,9 +2,9 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const app = express();
-const jwt = require("jsonwebtoken");
-const cookieParser = require("cookie-parser");
 const port = process.env.PORT || 3000;
+const admin = require("firebase-admin");
+const serviceAccount = require("./firebase-admin-key.json");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 //middleware
@@ -15,45 +15,38 @@ app.use(
   })
 );
 app.use(express.json());
-app.use(cookieParser());
-
-var admin = require("firebase-admin");
-
-var serviceAccount = require("./firebase-admin-key.json");
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
-const logger = (req, res, next) => {
-  console.log("inside the middleware");
-  next();
-};
+const verifyFirebaseToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
 
-const verifyToken = (req, res, next) => {
-  const token = req?.cookies?.token;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).send({ message: "Unauthorized access" });
+  }
+
+  const token = authHeader.split(" ")[1];
 
   if (!token) {
     return res.status(401).send({ message: "Unauthorized access" });
   }
 
-  jwt.verify(token, process.env.JWT_ACCESS_SECRET, (err, decoded) => {
-    if (err) {
-      return res.status(401).send({ message: "Unauthorized access" });
-    }
-    res.decoded = decoded;
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    console.log("decoded:", decoded);
+    req.decoded = decoded;
     next();
-  });
+  } catch (error) {
+    return res.status(401).send({ message: "unauthorized access" });
+  }
 };
 
-const verifyFirebaseToken = async (req, res, next) => {
-  const fbToken = req.headers.authorization;
-  const token = fbToken.split(" ")[1];
-  if (!token) {
-    return res.status(401).send({ message: "Unauthorized accees" });
+const verifyTokenEmail = (req, res, next) => {
+  if (req.query.email !== req.decoded.email) {
+    return res.status(403).send({ message: "forbidden access" });
   }
-  const userInfo = await admin.auth().verifyIdToken(token);
-  req.tokenEmail = userInfo.email;
   next();
 };
 
@@ -74,22 +67,6 @@ async function run() {
     const enrollmentsCollection = client
       .db("eduLearn")
       .collection("enrollments");
-
-    //jwt related APIs
-    app.post("/jwt", async (req, res) => {
-      const userInfo = req.body;
-
-      const token = jwt.sign(userInfo, process.env.JWT_ACCESS_SECRET, {
-        expiresIn: "1d",
-      });
-
-      res.cookie("token", token, {
-        httpOnly: true,
-        secure: false,
-      });
-
-      res.send({ success: true });
-    });
 
     //Course related APIs
 
@@ -124,22 +101,28 @@ async function run() {
     });
 
     //particular course id to see how many people have enrolled
-    app.get("/courses/enrollments", verifyToken, async (req, res) => {
-      const email = req.query.email;
-      const query = { instructorEmail: email };
-      const courses = await courseCollections.find(query).toArray();
+    app.get(
+      "/courses/enrollments",
+      verifyFirebaseToken,
+      verifyTokenEmail,
+      async (req, res) => {
+        const email = req.query.email;
 
-      //not a good way to find enrollments
-      for (const course of courses) {
-        const enrollmentsQuery = { courseId: course._id.toString() };
-        const enrollmentsCount = await enrollmentsCollection.countDocuments(
-          enrollmentsQuery
-        );
-        course.enrollmentsCount = enrollmentsCount;
+        const query = { instructorEmail: email };
+        const courses = await courseCollections.find(query).toArray();
+
+        //not a good way to find enrollments
+        for (const course of courses) {
+          const enrollmentsQuery = { courseId: course._id.toString() };
+          const enrollmentsCount = await enrollmentsCollection.countDocuments(
+            enrollmentsQuery
+          );
+          course.enrollmentsCount = enrollmentsCount;
+        }
+
+        res.send(courses);
       }
-
-      res.send(courses);
-    });
+    );
 
     //find/get a single course for details
     app.get("/course/:id", async (req, res) => {
@@ -192,12 +175,9 @@ async function run() {
 
     //enrollments related APIs
 
-    app.get("/enrollments", logger, verifyFirebaseToken, async (req, res) => {
+    app.get("/enrollments", verifyFirebaseToken,verifyTokenEmail, async (req, res) => {
       const email = req.query.email;
 
-      if (req.tokenEmail !== email) {
-        return res.status(403).send({ message: "forbidden accesss" });
-      }
       const query = {
         student: email,
       };
