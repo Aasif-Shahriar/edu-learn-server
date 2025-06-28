@@ -121,7 +121,6 @@ async function run() {
     //particular course id to see how many people have enrolled
     app.get("/courses/enrollments", verifyToken, async (req, res) => {
       const email = req.query.email;
-
       if (email !== req.decoded.email) {
         return res.status(403).send({ message: "Forbidden" });
       }
@@ -221,7 +220,7 @@ async function run() {
     app.get("/enrollments/check", verifyToken, async (req, res) => {
       const { email, courseId } = req.query;
       if (email !== req.decoded.email) {
-        return res.status(401).send({ message: "unauthorized access" });
+        return res.status(403).send({ message: "forbidden access" });
       }
       const exists = await enrollmentsCollection.findOne({
         courseId,
@@ -233,7 +232,7 @@ async function run() {
     app.get("/enrollments/count", verifyToken, async (req, res) => {
       const email = req.query.email;
       if (email !== req.decoded.email) {
-        return res.status(401).send({ message: "unauthorized access" });
+        return res.status(403).send({ message: "forbidden access" });
       }
       const count = await enrollmentsCollection.countDocuments({
         student: email,
@@ -274,7 +273,7 @@ async function run() {
 
       const result = await enrollmentsCollection.insertOne(enrollment);
 
-      // Safely increment count
+      //  increment count
       await courseCollections.updateOne(
         { _id: new ObjectId(courseId) },
         { $inc: { enrolledCount: 1 } }
@@ -284,14 +283,10 @@ async function run() {
     });
 
     //delete an enrollment
-    app.delete("/enrollments/:id", verifyToken, async (req, res) => {
+    app.delete("/enrollments/:id",verifyToken, async (req, res) => {
       const id = req.params.id;
 
-      if (enrollment.student !== req.decoded.email) {
-        return res
-          .status(403)
-          .send({ message: "Forbidden: Not your enrollment" });
-      }
+  
 
       const enrollment = await enrollmentsCollection.findOne({
         _id: new ObjectId(id),
@@ -299,6 +294,13 @@ async function run() {
 
       if (!enrollment) {
         return res.status(404).send({ message: "Enrollment not found" });
+      }
+      
+      //checking if the logged-in user is the owner
+      if (enrollment.student !== req.decoded.email) {
+        return res
+          .status(403)
+          .send({ message: "Forbidden: Not your enrollment" });
       }
 
       // Delete enrollment first
