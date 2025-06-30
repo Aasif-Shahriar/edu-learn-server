@@ -11,7 +11,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 //middleware
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: ["http://localhost:5173", "https://edu-learn-jwt.netlify.app"],
     credentials: true,
   })
 );
@@ -283,10 +283,8 @@ async function run() {
     });
 
     //delete an enrollment
-    app.delete("/enrollments/:id",verifyToken, async (req, res) => {
+    app.delete("/enrollments/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
-
-  
 
       const enrollment = await enrollmentsCollection.findOne({
         _id: new ObjectId(id),
@@ -295,7 +293,7 @@ async function run() {
       if (!enrollment) {
         return res.status(404).send({ message: "Enrollment not found" });
       }
-      
+
       //checking if the logged-in user is the owner
       if (enrollment.student !== req.decoded.email) {
         return res
