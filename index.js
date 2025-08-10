@@ -69,7 +69,7 @@ async function run() {
 
       res.cookie("token", token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "development",
+        secure: false,
         sameSite: "strict",
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
@@ -103,7 +103,7 @@ async function run() {
 
     //get latest course
     app.get("/latest", async (req, res) => {
-      const cursor = courseCollections.find().sort({ _id: -1 }).limit(6);
+      const cursor = courseCollections.find().sort({ _id: -1 }).limit(12);
       const result = await cursor.toArray();
       res.send(result);
     });
