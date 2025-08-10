@@ -47,7 +47,7 @@ const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
-    strict: true,
+    strict: none,
     deprecationErrors: true,
   },
 });
@@ -69,8 +69,8 @@ async function run() {
 
       res.cookie("token", token, {
         httpOnly: true,
-        secure: false,
-        sameSite: "strict",
+        secure: true,
+        sameSite: "none",
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
@@ -80,8 +80,8 @@ async function run() {
     app.post("/logout", (req, res) => {
       res.clearCookie("token", {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "development",
-        sameSite: "strict",
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "none",
       });
       res.send({ success: true });
     });
