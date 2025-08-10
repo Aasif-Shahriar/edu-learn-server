@@ -113,7 +113,7 @@ async function run() {
       const courses = await courseCollections
         .find()
         .sort({ enrolledCount: -1 })
-        .limit(6)
+        .limit(8)
         .toArray();
       res.send(courses);
     });
